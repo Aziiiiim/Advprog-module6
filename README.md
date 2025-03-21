@@ -167,6 +167,27 @@ Initially, we had redundant code in both if and else blocks. To improve maintain
 ![404 Error Page](screenshots/[3]404-error.png)
 
 
+## Commit 4 
+
+### Code changes
+
+- We add the following request handling: 
+
+```rust
+	"GET /sleep HTTP/1.1" => {
+    thread::sleep(Duration::from_secs(10));
+    ("HTTP/1.1 200 OK", "hello.html")
+}
+```
+Which means that if we try to access to http://127.0.0.1:7878/sleep, the server will first wait for 10 seconds and then print the Hello page.
+
+### Consequences
+
+We observe that if we try access to http://127.0.0.1:7878 in parallel of http://127.0.0.1:7878/sleep, then it will also be slow.
+
+### Why is it highlighting an issue?
+
+It shows that a single-threaded server processes requests sequentially, meaning one slow request blocks all others. Here accessing the http://127.0.0.1:7878/sleep page blocks the access of the http://127.0.0.1:7878 page.
 
 
 	

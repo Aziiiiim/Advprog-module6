@@ -190,4 +190,76 @@ We observe that if we try access to http://127.0.0.1:7878 in parallel of http://
 It shows that a single-threaded server processes requests sequentially, meaning one slow request blocks all others. Here accessing the http://127.0.0.1:7878/sleep page blocks the access of the http://127.0.0.1:7878 page.
 
 
-	
+## Commit 5
+
+- ```rust
+    let pool = ThreadPool::new(4);
+  ```
+This initializes a thread pool with 4 worker threads to handle multiple requests concurrently.
+
+- ```rust
+    for stream in listener.incoming() {
+        let stream = stream.unwrap();
+        pool.execute(|| {
+            handle_connection(stream);
+        });
+    }
+  ```
+This loop listens for incoming TCP connections, and each request is passed to the thread pool for handling in a separate thread.
+
+- ```rust
+    pub struct ThreadPool {
+        workers: Vec<Worker>,
+        sender: mpsc::Sender<Job>,
+    }
+  ```
+The `ThreadPool` struct manages worker threads and a sender channel for dispatching jobs.
+
+- ```rust
+    let (sender, receiver) = mpsc::channel();
+  ```
+This creates a multi-producer, single-consumer (mpsc) channel for sending jobs to worker threads.
+
+- ```rust
+    let receiver = Arc::new(Mutex::new(receiver));
+  ```
+The receiver is wrapped in `Arc<Mutex<T>>` to allow multiple threads to safely access the shared queue of jobs.
+
+- ```rust
+    struct Worker {
+        id: usize,
+        thread: thread::JoinHandle<()>,
+    }
+  ```
+The `Worker` struct represents a single thread in the pool, storing an ID and a thread handle.
+
+- ```rust
+    fn new(id: usize, receiver: Arc<Mutex<mpsc::Receiver<Job>>>) -> Worker {
+  ```
+The `Worker::new` function spawns a new thread that listens for incoming jobs from the shared receiver queue.
+
+- ```rust
+    let message = receiver.lock().unwrap().recv();
+  ```
+This locks the receiver, waits for a job to be received, and handles errors if the channel is closed.
+
+- ```rust
+    match message {
+        Ok(job) => {
+            println!("Worker {id} got a job; executing.");
+            job();
+        }
+        Err(_) => {
+            println!("Worker {id} disconnected; shutting down.");
+            break;
+        }
+    }
+  ```
+Each worker waits for jobs, executes them when available, and shuts down gracefully when the sender is closed.
+
+
+### Screenshot
+
+- Screenshot of the result in the terminal of several different requests to the server :
+
+![Terminal result](screenshots/[5]result.png)
